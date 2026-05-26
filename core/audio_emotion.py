@@ -2,33 +2,34 @@ import numpy as np
 import librosa
 import threading
 
-_result = {"label": "Neutral", "score": 0.10, "rms": 0.0}
-_buffer = []
-_lock   = threading.Lock()
+_lock        = threading.Lock()
+_buffer      = []
+_latest      = {"label": "Not Recorded", "score": 0.05,
+                "rms": 0.0, "zcr": 0.0, "centroid": 0.0}
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE  = 16000
+CHUNK_SECS   = 5
 
-def get_result():
-    return _result
 
 def process_audio_frame(audio: np.ndarray):
-    """Called from webrtc callback in app.py"""
-    global _buffer, _result
+    global _buffer, _latest
 
     with _lock:
         _buffer.extend(audio.tolist())
 
-        if len(_buffer) >= SAMPLE_RATE * 5:
-            y = np.array(_buffer[:SAMPLE_RATE * 5], dtype=np.float32)
-            _buffer = []
+        if len(_buffer) >= SAMPLE_RATE * CHUNK_SECS:
+            y         = np.array(_buffer[:SAMPLE_RATE * CHUNK_SECS], dtype=np.float32)
+            _buffer   = []
 
-            rms      = float(np.sqrt(np.mean(y ** 2)))
-            zcr      = float(np.mean(librosa.feature.zero_crossing_rate(y)))
-            centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=SAMPLE_RATE)))
-            mfccs    = librosa.feature.mfcc(y=y, sr=SAMPLE_RATE, n_mfcc=13)
+            rms       = float(np.sqrt(np.mean(y ** 2)))
+            zcr       = float(np.mean(librosa.feature.zero_crossing_rate(y)))
+            centroid  = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=SAMPLE_RATE)))
+            mfccs     = librosa.feature.mfcc(y=y, sr=SAMPLE_RATE, n_mfcc=13)
             mfcc_mean = float(np.mean(mfccs[1]))
 
-            if rms < 0.01:
+            if rms < 0.005:
+                label, score = "No Voice", 0.05
+            elif rms < 0.01:
                 label, score = "Calm", 0.05
             elif rms < 0.03 and zcr < 0.05:
                 label, score = "Neutral", 0.10
@@ -44,5 +45,17 @@ def process_audio_frame(audio: np.ndarray):
                 label, score = "Neutral", 0.10
 
             rms_intensity = min(rms / 0.12, 1.0)
-            distress = round(min(score + (score * rms_intensity * 0.4), 1.0), 3)
-            _result  = {"label": label, "score": distress, "rms": rms}
+            distress      = round(min(score + (score * rms_intensity * 0.4), 1.0), 3)
+
+            _latest = {
+                "label"   : label,
+                "score"   : distress,
+                "rms"     : round(rms, 4),
+                "zcr"     : round(zcr, 4),
+                "centroid": round(centroid, 1),
+            }
+
+
+def get_result():
+    with _lock:
+        return dict(_latest)
