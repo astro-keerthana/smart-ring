@@ -3,12 +3,12 @@
 #  Run: streamlit run app.py
 # ============================================================
 
-import time
 import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
+import av
 
 from core.ppg         import process_ppg
 from core.stress      import detect_stress
@@ -17,7 +17,6 @@ from core.cycle       import detect_cycle
 from core.suggestions import get_suggestions
 from core.audio_emotion import get_result, process_audio_frame
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
-import av
 
 # ─────────────────────────────────────────────────────────────
 # PAGE CONFIG
@@ -77,7 +76,8 @@ def make_gauge(value, label, color, max_val=100):
             }
         }
     ))
-    fig.update_layout(height=200, **CHART_DEFAULTS)
+    fig.update_layout(height=200, margin=dict(t=30, b=0, l=10, r=10),
+                      **{k: v for k, v in CHART_DEFAULTS.items() if k != "margin"})
     return fig
 
 
@@ -186,18 +186,30 @@ def score_label(score):
 
 if "audio_result" not in st.session_state:
     st.session_state.audio_result = {
-        "label"      : "Not Recorded",
-        "score"      : 0.05,
-        "severity"   : "None",
-        "rms"        : 0.0,
-        "zcr"        : 0.0,
-        "centroid"   : 0.0,
-        "speech_rate": 0.0,
-        "mfcc_mean"  : 0.0,
+        "label"   : "Not Recorded",
+        "score"   : 0.05,
+        "rms"     : 0.0,
+        "zcr"     : 0.0,
+        "centroid": 0.0,
     }
 
-if "recording_started" not in st.session_state:
-    st.session_state.recording_started = False
+
+# ─────────────────────────────────────────────────────────────
+# WEBRTC AUDIO CALLBACK
+# ─────────────────────────────────────────────────────────────
+
+def audio_frame_callback(frame: av.AudioFrame):
+    audio = frame.to_ndarray().flatten().astype(np.float32)
+    if len(audio) > 0 and np.max(np.abs(audio)) > 1.0:
+        audio = audio / 32768.0
+    process_audio_frame(audio)
+
+    # Pull latest result into session state
+    result = get_result()
+    if result is not None:
+        st.session_state.audio_result = result
+
+    return frame
 
 
 # ─────────────────────────────────────────────────────────────
@@ -243,37 +255,16 @@ with st.sidebar:
 
     st.markdown("<hr style='border-color:#1e2d45; margin:12px 0;'>",
                 unsafe_allow_html=True)
-    st.markdown("VOICE EMOTION")
+    st.markdown("🎙️ **VOICE EMOTION**")
+    st.caption("Click Start → Allow microphone → speak naturally")
 
-    # Button — only show when not actively recording
-    if not is_recording():
-        if st.button("Record 5s — Detect Emotion", use_container_width=True):
-            start_recording()
-            st.session_state.recording_started = True
-            st.rerun()
-
-    # Live indicator while recording — dashboard stays interactive
-    if is_recording():
-        st.markdown("""
-        <div style='background:#0f1829; border:1px solid #f59e0b;
-                    border-radius:8px; padding:12px; margin-top:8px;
-                    text-align:center;'>
-            <div style='font-size:0.78rem; color:#f59e0b; font-weight:600;'>
-                Listening...
-            </div>
-            <div style='font-size:0.68rem; color:#475569; margin-top:4px;'>
-                Recording 5 seconds
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        time.sleep(1)
-        st.rerun()
-
-    # Pick up result when background thread finishes
-    result = get_result()
-    if result is not None and st.session_state.recording_started:
-        st.session_state.audio_result      = result
-        st.session_state.recording_started = False
+    webrtc_streamer(
+        key                        = "audio-emotion",
+        mode                       = WebRtcMode.SENDONLY,
+        audio_frame_callback       = audio_frame_callback,
+        media_stream_constraints   = {"audio": True, "video": False},
+        async_processing           = True,
+    )
 
     ar = st.session_state.audio_result
     st.markdown(f"""
@@ -288,7 +279,7 @@ with st.sidebar:
             {ar["label"]}
         </div>
         <div style='font-size:0.72rem; color:#64748b; margin-top:4px;'>
-            RMS: {ar["rms"]} &nbsp;|&nbsp; ZCR: {ar["zcr"]}
+            RMS: {ar["rms"]} &nbsp;|&nbsp; ZCR: {ar.get("zcr", 0.0)}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -384,16 +375,15 @@ st.markdown("<div class='section-label'>Vitals</div>",
 v1, v2, v3, v4, v5 = st.columns(5)
 
 def vital_card(col, label, value, unit, status_text, accent):
-    status_cls = ("status-normal"  if accent == "#10b981" else
-                  "status-warning" if accent == "#f59e0b" else
-                  "status-critical")
     col.markdown(f"""
     <div class='metric-card metric-card-{"green" if accent=="#10b981"
         else "yellow" if accent=="#f59e0b" else "red"}'>
         <div class='metric-card-label'>{label}</div>
         <div class='metric-card-value' style='color:{accent};'>{value}</div>
         <div class='metric-card-unit'>{unit}</div>
-        <div class='metric-card-status {status_cls}'>{status_text}</div>
+        <div class='metric-card-status {"status-normal" if accent=="#10b981"
+            else "status-warning" if accent=="#f59e0b"
+            else "status-critical"}'>{status_text}</div>
     </div>
     """, unsafe_allow_html=True)
 
