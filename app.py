@@ -16,25 +16,7 @@ from core.fatigue     import detect_fatigue
 from core.cycle       import detect_cycle
 from core.suggestions import get_suggestions
 from core.audio_emotion import get_result, process_audio_frame
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
-
-RTC_CONFIG = RTCConfiguration({
-    "iceServers": [
-        {"urls": ["stun:stun.l.google.com:19302"]},
-        {"urls": ["stun:stun1.l.google.com:19302"]},
-        {"urls": ["stun:stun2.l.google.com:19302"]},
-    ]
-})
-
-webrtc_streamer(
-    key                      = "audio-emotion",
-    mode                     = WebRtcMode.SENDONLY,
-    rtc_configuration        = RTC_CONFIG,
-    audio_frame_callback     = audio_frame_callback,
-    media_stream_constraints = {"audio": True, "video": False},
-    async_processing         = True,
-)
-
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
 
 # ─────────────────────────────────────────────────────────────
 # PAGE CONFIG
