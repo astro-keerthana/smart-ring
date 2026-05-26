@@ -202,37 +202,39 @@ with st.sidebar:
     hr_base    = st.slider("Follicular HR (BPM)",    50,  90, 71)
     hrv_base   = st.slider("Follicular HRV (ms)",    20,  80, 52)
 
-    st.markdown("<hr style='border-color:#1e2d45;margin:12px 0;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#1e2d45;margin:12px 0;'>", unsafe_allow_html=True)
     st.markdown("🎙️ **VOICE EMOTION**")
 
-    # ── Browser MediaRecorder component ──────────────────────
+    # ── Recorder HTML (writes b64 into a hidden text input) ──
     recorder_html = """
     <style>
-      body { margin:0; background:transparent; }
+      body { margin:0; padding:0; background:transparent; }
       #rec-btn {
         width:100%; padding:11px 0; border:none; border-radius:8px;
         background:#1e3a5f; color:#f1f5f9; font-size:0.85rem;
         font-weight:600; cursor:pointer; letter-spacing:0.02em;
         transition:background 0.2s;
       }
-      #rec-btn:hover   { background:#2563eb; }
-      #rec-btn.active  { background:#dc2626; }
-      #rec-btn:disabled{ opacity:0.5; cursor:not-allowed; }
+      #rec-btn:hover  { background:#2563eb; }
+      #rec-btn.active { background:#dc2626; }
+      #rec-btn:disabled { opacity:0.5; cursor:not-allowed; }
       #status {
         margin-top:8px; font-size:0.73rem; color:#64748b;
-        text-align:center; min-height:18px; font-family:Inter,sans-serif;
+        text-align:center; min-height:18px;
       }
+      #hidden-input { display:none; }
     </style>
 
     <button id="rec-btn" onclick="startRec()">🎙 Start Recording (5s)</button>
     <div id="status">Press to analyse your voice emotion</div>
+    <input id="hidden-input" type="text" />
 
     <script>
     async function startRec() {
       const btn    = document.getElementById('rec-btn');
       const status = document.getElementById('status');
 
-      btn.disabled  = true;
+      btn.disabled = true;
       btn.classList.add('active');
       btn.textContent = '⏺ Recording...';
 
@@ -240,47 +242,52 @@ with st.sidebar:
       status.textContent = `Listening... ${secs}s`;
       const timer = setInterval(() => {
         secs--;
-        status.textContent = secs > 0 ? `Listening... ${secs}s` : 'Analysing...';
+        status.textContent = secs > 0 ? `Listening... ${secs}s` : 'Processing...';
         if (secs <= 0) clearInterval(timer);
       }, 1000);
 
       try {
         const stream   = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
-        const recorder = new MediaRecorder(stream);
+        const recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
         const chunks   = [];
 
-        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
 
         recorder.onstop = async () => {
           stream.getTracks().forEach(t => t.stop());
-          const blob   = new Blob(chunks, {type: 'audio/webm'});
+
+          const blob   = new Blob(chunks, {type:'audio/webm'});
           const buffer = await blob.arrayBuffer();
           const bytes  = new Uint8Array(buffer);
 
-          // convert to base64
+          // base64 encode
           let binary = '';
-          bytes.forEach(b => binary += String.fromCharCode(b));
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
           const b64 = btoa(binary);
 
-          // send to Streamlit
+          // Send to Streamlit parent frame
           window.parent.postMessage({
+            isStreamlitMessage: true,
             type: 'streamlit:setComponentValue',
             value: b64
           }, '*');
 
-          btn.disabled    = false;
+          status.textContent = '✅ Done! Analysing...';
+          btn.disabled = false;
           btn.classList.remove('active');
           btn.textContent = '🎙 Start Recording (5s)';
-          status.textContent = '✅ Done! Result updating...';
         };
 
-        recorder.start(100);
+        recorder.start(250);
         setTimeout(() => recorder.stop(), 5000);
 
       } catch(err) {
         clearInterval(timer);
-        status.textContent = '❌ Mic access denied — check browser permissions';
-        btn.disabled    = false;
+        status.textContent = '❌ Mic denied — allow in browser settings';
+        btn.disabled = false;
         btn.classList.remove('active');
         btn.textContent = '🎙 Start Recording (5s)';
       }
@@ -288,54 +295,70 @@ with st.sidebar:
     </script>
     """
 
+    # THIS is the key — declare_component CAN return values
+    import streamlit.components.v1 as components
+
     audio_b64 = components.html(recorder_html, height=80)
 
-    # ── Process received audio ────────────────────────────────
-    if audio_b64 and isinstance(audio_b64, str) and len(audio_b64) > 200:
-        if audio_b64 != st.session_state.audio_b64:
+    # ── Fallback: file uploader if JS bridge fails ────────────
+    st.markdown("<div style='font-size:0.7rem;color:#475569;text-align:center;margin-top:6px;'>or upload a WAV/MP3 file</div>",
+                unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Upload audio", type=["wav","mp3","ogg","webm","m4a"],
+                                     label_visibility="collapsed")
+
+    # ── Process uploaded file (GUARANTEED to work) ────────────
+    if uploaded_file is not None:
+        file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+        if file_key != st.session_state.get("last_file_key"):
+            st.session_state.last_file_key = file_key
+            try:
+                import io, librosa as _lb
+                y, sr = _lb.load(io.BytesIO(uploaded_file.read()), sr=16000, mono=True)
+                y = y.astype(np.float32)
+                analyse(y, sr)
+                st.session_state.audio_result = get_result()
+                st.rerun()
+            except Exception as ex:
+                st.caption(f"⚠️ {ex}")
+
+    # ── Process JS audio if it came through ──────────────────
+    elif audio_b64 and isinstance(audio_b64, str) and len(audio_b64) > 500:
+        if audio_b64 != st.session_state.get("audio_b64"):
             st.session_state.audio_b64 = audio_b64
             try:
-                import subprocess, tempfile, os
+                import io, base64, subprocess, tempfile, os
+                raw = base64.b64decode(audio_b64)
 
-                # Decode base64 → raw webm bytes
-                raw_bytes = base64.b64decode(audio_b64)
-
-                # Write webm to temp file
                 with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
-                    f.write(raw_bytes)
+                    f.write(raw)
                     webm_path = f.name
 
-                # Convert webm → wav using ffmpeg (available on Streamlit Cloud)
                 wav_path = webm_path.replace(".webm", ".wav")
-                result = subprocess.run(
+                proc = subprocess.run(
                     ["ffmpeg", "-y", "-i", webm_path,
-                     "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
+                     "-ar", "16000", "-ac", "1", wav_path],
                     capture_output=True
                 )
 
-                if result.returncode == 0 and os.path.exists(wav_path):
+                if proc.returncode == 0:
                     import soundfile as sf
                     y, sr = sf.read(wav_path)
-                    y = y.astype(np.float32)
-                    analyse(y, sr)
-                    st.session_state.audio_result = get_result()
                 else:
-                    # ffmpeg fallback: try librosa direct
                     import librosa as _lb
-                    import io
-                    y, sr = _lb.load(io.BytesIO(raw_bytes), sr=16000, mono=True)
-                    analyse(y, sr)
-                    st.session_state.audio_result = get_result()
+                    y, sr = _lb.load(io.BytesIO(raw), sr=16000, mono=True)
 
-                # Cleanup temp files
+                y = np.array(y, dtype=np.float32)
+                analyse(y, int(sr))
+                st.session_state.audio_result = get_result()
+
                 for p in [webm_path, wav_path]:
                     try: os.remove(p)
                     except: pass
 
                 st.rerun()
-
             except Exception as ex:
-                st.caption(f"⚠️ Error: {ex}")
+                st.caption(f"⚠️ {ex}")
+
 
 
     # ── Emotion result card ───────────────────────────────────
