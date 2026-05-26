@@ -75,7 +75,7 @@ def make_gauge(value, label, color, max_val=100):
             }
         }
     ))
-    fig.update_layout(height=185, **CHART_DEFAULTS)
+    fig.update_layout(height=200, **CHART_DEFAULTS)
     return fig
 
 
