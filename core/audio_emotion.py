@@ -3,6 +3,12 @@ import sounddevice as sd
 import librosa
 import threading
 
+try:
+    import sounddevice as sd
+    AUDIO_AVAILABLE = True
+except (ImportError, OSError):
+    AUDIO_AVAILABLE = False
+
 SAMPLE_RATE = 22050
 DURATION    = 5
 
@@ -11,7 +17,26 @@ _recording_buffer = None
 _is_recording     = False
 _record_thread    = None
 
+_recording = False
+_result    = {"label": "Not Available", "score": 0.05, "rms": 0.0}
 
+def is_recording():
+    return _recording
+
+def get_result():
+    return _result
+
+def start_recording(duration=5, sr=22050):
+    if not AUDIO_AVAILABLE:
+        global _result
+        _result = {
+            "label"    : "No Mic",
+            "score"    : 0.05,
+            "rms"      : 0.0,
+            "zcr"      : 0.0,
+            "centroid" : 0.0,
+        }
+        return 
 def _record_worker():
     global _recording_buffer, _is_recording
     _is_recording     = True
