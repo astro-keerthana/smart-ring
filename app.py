@@ -295,21 +295,48 @@ with st.sidebar:
         if audio_b64 != st.session_state.audio_b64:
             st.session_state.audio_b64 = audio_b64
             try:
-                import soundfile as sf
-                import librosa as _librosa
+                import subprocess, tempfile, os
 
-                raw     = base64.b64decode(audio_b64)
-                y, sr   = sf.read(io.BytesIO(raw))
-                if y.ndim > 1:
-                    y = y.mean(axis=1)
-                y = y.astype(np.float32)
-                if sr != 16000:
-                    y = _librosa.resample(y, orig_sr=sr, target_sr=16000)
-                analyse(y)
-                st.session_state.audio_result = get_result()
+                # Decode base64 → raw webm bytes
+                raw_bytes = base64.b64decode(audio_b64)
+
+                # Write webm to temp file
+                with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
+                    f.write(raw_bytes)
+                    webm_path = f.name
+
+                # Convert webm → wav using ffmpeg (available on Streamlit Cloud)
+                wav_path = webm_path.replace(".webm", ".wav")
+                result = subprocess.run(
+                    ["ffmpeg", "-y", "-i", webm_path,
+                     "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
+                    capture_output=True
+                )
+
+                if result.returncode == 0 and os.path.exists(wav_path):
+                    import soundfile as sf
+                    y, sr = sf.read(wav_path)
+                    y = y.astype(np.float32)
+                    analyse(y, sr)
+                    st.session_state.audio_result = get_result()
+                else:
+                    # ffmpeg fallback: try librosa direct
+                    import librosa as _lb
+                    import io
+                    y, sr = _lb.load(io.BytesIO(raw_bytes), sr=16000, mono=True)
+                    analyse(y, sr)
+                    st.session_state.audio_result = get_result()
+
+                # Cleanup temp files
+                for p in [webm_path, wav_path]:
+                    try: os.remove(p)
+                    except: pass
+
                 st.rerun()
+
             except Exception as ex:
-                st.caption(f"⚠️ Audio processing error: {ex}")
+                st.caption(f"⚠️ Error: {ex}")
+
 
     # ── Emotion result card ───────────────────────────────────
     ar = st.session_state.audio_result
