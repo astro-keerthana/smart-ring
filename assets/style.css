@@ -1,0 +1,266 @@
+/* ─────────────────────────────────────────────
+   SMART RING v3.0 — Professional Dashboard CSS
+   ───────────────────────────────────────────── */
+
+   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+   /* ── Global Reset ── */
+   html, body, [class*="css"] {
+       font-family: 'Inter', sans-serif;
+   }
+   
+   .stApp {
+       background-color: #080c14;
+       color: #e2e8f0;
+   }
+   
+   /* ── Hide Streamlit chrome ── */
+   #MainMenu, footer, header { visibility: hidden; }
+   .block-container {
+       padding: 1.5rem 2rem 2rem 2rem;
+       max-width: 1400px;
+   }
+   
+   /* ── Sidebar ── */
+   section[data-testid="stSidebar"] {
+       background-color: #0c1220;
+       border-right: 1px solid #1e2d45;
+       padding-top: 1rem;
+   }
+   section[data-testid="stSidebar"] .stMarkdown p {
+       color: #94a3b8;
+       font-size: 0.75rem;
+       text-transform: uppercase;
+       letter-spacing: 0.08em;
+       font-weight: 600;
+   }
+   
+   /* ── Page Header ── */
+   .page-header {
+       padding: 1.2rem 0 0.5rem 0;
+       border-bottom: 1px solid #1e2d45;
+       margin-bottom: 1.5rem;
+   }
+   .page-title {
+       font-size: 1.35rem;
+       font-weight: 700;
+       color: #f1f5f9;
+       letter-spacing: -0.02em;
+   }
+   .page-subtitle {
+       font-size: 0.8rem;
+       color: #64748b;
+       margin-top: 2px;
+       font-weight: 400;
+   }
+   
+   /* ── Status Banner ── */
+   .banner {
+       border-radius: 8px;
+       padding: 14px 20px;
+       margin-bottom: 1.5rem;
+       display: flex;
+       align-items: center;
+       gap: 12px;
+       border: 1px solid transparent;
+   }
+   .banner-critical {
+       background: rgba(239, 68, 68, 0.08);
+       border-color: rgba(239, 68, 68, 0.25);
+   }
+   .banner-warning {
+       background: rgba(245, 158, 11, 0.08);
+       border-color: rgba(245, 158, 11, 0.25);
+   }
+   .banner-normal {
+       background: rgba(16, 185, 129, 0.08);
+       border-color: rgba(16, 185, 129, 0.25);
+   }
+   .banner-dot {
+       width: 10px;
+       height: 10px;
+       border-radius: 50%;
+       flex-shrink: 0;
+   }
+   .banner-dot-critical { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+   .banner-dot-warning  { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+   .banner-dot-normal   { background: #10b981; box-shadow: 0 0 8px #10b981; }
+   .banner-text-title {
+       font-size: 0.9rem;
+       font-weight: 600;
+       color: #f1f5f9;
+   }
+   .banner-text-sub {
+       font-size: 0.78rem;
+       color: #94a3b8;
+       margin-top: 1px;
+   }
+   
+   /* ── Section Label ── */
+   .section-label {
+       font-size: 0.7rem;
+       font-weight: 700;
+       color: #475569;
+       text-transform: uppercase;
+       letter-spacing: 0.1em;
+       margin-bottom: 0.75rem;
+       padding-bottom: 6px;
+       border-bottom: 1px solid #1e2d45;
+   }
+   
+   /* ── Metric Card ── */
+   .metric-card {
+       background: #0f1829;
+       border: 1px solid #1e2d45;
+       border-radius: 10px;
+       padding: 18px 16px;
+       position: relative;
+       overflow: hidden;
+   }
+   .metric-card::before {
+       content: '';
+       position: absolute;
+       top: 0; left: 0; right: 0;
+       height: 2px;
+   }
+   .metric-card-green::before  { background: #10b981; }
+   .metric-card-yellow::before { background: #f59e0b; }
+   .metric-card-red::before    { background: #ef4444; }
+   .metric-card-blue::before   { background: #3b82f6; }
+   .metric-card-purple::before { background: #8b5cf6; }
+   
+   .metric-card-label {
+       font-size: 0.7rem;
+       font-weight: 600;
+       color: #475569;
+       text-transform: uppercase;
+       letter-spacing: 0.08em;
+   }
+   .metric-card-value {
+       font-size: 2rem;
+       font-weight: 700;
+       line-height: 1.1;
+       margin: 8px 0 4px 0;
+       letter-spacing: -0.03em;
+   }
+   .metric-card-unit {
+       font-size: 0.75rem;
+       color: #64748b;
+       font-weight: 400;
+   }
+   .metric-card-status {
+       font-size: 0.72rem;
+       font-weight: 600;
+       margin-top: 8px;
+       padding: 3px 8px;
+       border-radius: 4px;
+       display: inline-block;
+   }
+   .status-normal  { background: rgba(16,185,129,0.12); color: #10b981; }
+   .status-warning { background: rgba(245,158,11,0.12); color: #f59e0b; }
+   .status-critical{ background: rgba(239,68,68,0.12);  color: #ef4444; }
+   
+   /* ── Analysis Card (Gauge wrapper) ── */
+   .analysis-card {
+       background: #0f1829;
+       border: 1px solid #1e2d45;
+       border-radius: 10px;
+       padding: 16px;
+   }
+   .analysis-card-title {
+       font-size: 0.7rem;
+       font-weight: 700;
+       color: #475569;
+       text-transform: uppercase;
+       letter-spacing: 0.08em;
+       margin-bottom: 4px;
+   }
+   .analysis-card-result {
+       font-size: 0.95rem;
+       font-weight: 700;
+       margin-top: 4px;
+   }
+   .analysis-card-sub {
+       font-size: 0.72rem;
+       color: #64748b;
+       margin-top: 2px;
+   }
+   
+   /* ── Suggestion Card ── */
+   .suggestion-card {
+       background: #0f1829;
+       border: 1px solid #1e2d45;
+       border-left: 3px solid #3b82f6;
+       border-radius: 8px;
+       padding: 14px 16px;
+       margin-bottom: 8px;
+       font-size: 0.85rem;
+       color: #cbd5e1;
+       line-height: 1.5;
+   }
+   .suggestion-card-priority {
+       border-left-color: #ef4444;
+   }
+   
+   /* ── Cycle Card ── */
+   .cycle-info-card {
+       background: #0f1829;
+       border: 1px solid #1e2d45;
+       border-radius: 10px;
+       padding: 18px;
+   }
+   .cycle-phase-label {
+       font-size: 1.1rem;
+       font-weight: 700;
+       color: #f1f5f9;
+       letter-spacing: -0.01em;
+   }
+   .cycle-meta {
+       font-size: 0.78rem;
+       color: #64748b;
+       margin-top: 4px;
+   }
+   .cycle-next {
+       font-size: 0.85rem;
+       color: #94a3b8;
+       margin-top: 12px;
+       padding-top: 12px;
+       border-top: 1px solid #1e2d45;
+   }
+   .cycle-next strong { color: #f1f5f9; }
+   
+   /* ── Raw Data Table ── */
+   .raw-table-wrapper {
+       background: #0f1829;
+       border: 1px solid #1e2d45;
+       border-radius: 10px;
+       padding: 16px;
+   }
+   
+   /* ── Divider ── */
+   .divider {
+       border: none;
+       border-top: 1px solid #1e2d45;
+       margin: 1.5rem 0;
+   }
+   
+   /* ── Slider overrides ── */
+   .stSlider [data-baseweb="slider"] {
+       margin-top: 4px;
+   }
+   div[data-testid="stSlider"] label {
+       font-size: 0.78rem !important;
+       color: #94a3b8 !important;
+       font-weight: 500 !important;
+   }
+   
+   /* ── Expander ── */
+   .streamlit-expanderHeader {
+       background: #0f1829 !important;
+       border: 1px solid #1e2d45 !important;
+       border-radius: 8px !important;
+       font-size: 0.8rem !important;
+       color: #94a3b8 !important;
+       font-weight: 600 !important;
+   }
+   
