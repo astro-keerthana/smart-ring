@@ -15,7 +15,9 @@ from core.stress      import detect_stress
 from core.fatigue     import detect_fatigue
 from core.cycle       import detect_cycle
 from core.suggestions import get_suggestions
-from core.audio_emotion import start_recording, is_recording, get_result
+from core.audio_emotion import get_result, process_audio_frame
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
+import av
 
 # ─────────────────────────────────────────────────────────────
 # PAGE CONFIG
