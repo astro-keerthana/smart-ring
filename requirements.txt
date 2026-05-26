@@ -4,6 +4,6 @@ pandas
 plotly
 librosa
 soundfile
-streamlit-webrtc
-av
-aiortc
+streamlit-webrtc==0.47.1
+av==10.0.0
+aiortc==1.6.0
